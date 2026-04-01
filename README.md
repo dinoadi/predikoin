@@ -216,3 +216,4 @@ PREDICT_BITCOIN: 0 * * * *    (every hour)
 ## ⚠️ Disclaimer
 
 Sistem ini hanya untuk educational purposes. Jangan gunakan untuk trading real money tanpa riset lebih lanjut.
+# predikoin
