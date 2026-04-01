@@ -1,0 +1,47 @@
+{
+  "projectId": "${APPWRITE_PROJECT_ID}",
+  "endpoint": "${APPWRITE_API_ENDPOINT}",
+  "apiKey": "${APPWRITE_API_KEY}",
+  "functions": [
+    {
+      "id": "fetch_price",
+      "name": "Fetch Price",
+      "description": "Fetch OHLCV data from Binance and Bybit",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "timeout": 900
+    },
+    {
+      "id": "news_sentiment",
+      "name": "News Sentiment Analysis",
+      "description": "Analyze sentiment from crypto and finance news",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "timeout": 900
+    },
+    {
+      "id": "tradingview_webhook",
+      "name": "TradingView Webhook Handler",
+      "description": "Receive and process TradingView TA alerts",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "timeout": 300
+    },
+    {
+      "id": "predict_bitcoin",
+      "name": "Bitcoin Price Prediction",
+      "description": "Generate price predictions using ML model",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "timeout": 900
+    },
+    {
+      "id": "telegram_notif",
+      "name": "Send Telegram Notification",
+      "description": "Send trading signals and alerts via Telegram",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "timeout": 300
+    }
+  ]
+}
