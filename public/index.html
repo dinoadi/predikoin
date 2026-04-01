@@ -166,27 +166,26 @@
             const password = document.getElementById('password').value;
 
             try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
+                // Simple client-side validation
+                const adminPassword = 'Broken12#';
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Store token
-                    localStorage.setItem('adminToken', data.token);
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard.html';
-                } else {
-                    showError(data.error || 'Login failed');
+                if (username !== 'admin' || password !== adminPassword) {
+                    showError('Invalid username or password');
+                    loading.style.display = 'none';
+                    return;
                 }
+
+                // Generate simple token
+                const token = btoa(JSON.stringify({ user: 'admin', timestamp: Date.now() }));
+
+                // Store token
+                localStorage.setItem('adminToken', token);
+                localStorage.setItem('adminUser', username);
+
+                // Redirect to dashboard
+                window.location.href = '/dashboard.html';
             } catch (error) {
-                showError('Connection error: ' + error.message);
-            } finally {
+                showError('Error: ' + error.message);
                 loading.style.display = 'none';
             }
         });

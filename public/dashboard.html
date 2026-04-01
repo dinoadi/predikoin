@@ -268,7 +268,8 @@
 
     <script>
         // Check authentication
-        if (!localStorage.getItem('adminToken')) {
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
             window.location.href = '/';
         }
 
@@ -276,24 +277,36 @@
 
         async function loadData() {
             try {
-                const token = localStorage.getItem('adminToken');
+                // Mock data - akan diconnect ke Appwrite nanti
+                const mockData = {
+                    currentPrice: 42000.50,
+                    priceChange: 2.5,
+                    prediction: {
+                        action: 'BUY',
+                        confidence: 0.78,
+                        riskLevel: 'LOW',
+                        timestamp: new Date().toISOString()
+                    },
+                    sentiment: {
+                        label: 'positive',
+                        score: 0.35
+                    },
+                    technicals: {
+                        rsi: 28,
+                        ma10: 41800,
+                        ma30: 42000
+                    },
+                    signals: [
+                        {
+                            type: 'RSI_OVERSOLD',
+                            direction: 'UP',
+                            timestamp: new Date().toISOString()
+                        }
+                    ],
+                    priceHistory: generateMockPriceHistory()
+                };
 
-                const response = await fetch('/api/dashboard', {
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        localStorage.removeItem('adminToken');
-                        window.location.href = '/';
-                    }
-                    throw new Error('Failed to load data');
-                }
-
-                const data = await response.json();
-                updateUI(data);
+                updateUI(mockData);
             } catch (error) {
                 showMessage('Error: ' + error.message, 'error');
             }
@@ -319,70 +332,8 @@
                 document.getElementById('sentimentScore').textContent = data.sentiment.label + ' (' + (data.sentiment.score * 100).toFixed(1) + '%)';
             }
 
-            // Update charts
-            updateCharts(data);
-
-            // Update signals
             updateSignals(data.signals || []);
-
             showMessage('Dashboard updated: ' + new Date().toLocaleTimeString('id-ID'), 'success');
-        }
-
-        function updateCharts(data) {
-            // Price Chart
-            if (data.priceHistory) {
-                const ctx = document.getElementById('priceChart').getContext('2d');
-                if (priceChart) {
-                    priceChart.destroy();
-                }
-                priceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.priceHistory.map(p => new Date(p.timestamp).toLocaleTimeString('id-ID')),
-                        datasets: [{
-                            label: 'BTC/USDT',
-                            data: data.priceHistory.map(p => p.price),
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: false
-                            }
-                        }
-                    }
-                });
-            }
-
-            // RSI Chart
-            if (data.technicals && data.technicals.rsi) {
-                const ctx = document.getElementById('rsiChart').getContext('2d');
-                if (rsiChart) {
-                    rsiChart.destroy();
-                }
-                rsiChart = new Chart(ctx, {
-                    type: 'gauge',
-                    data: {
-                        datasets: [{
-                            value: data.technicals.rsi,
-                            data: [0, 100],
-                            backgroundColor: [
-                                data.technicals.rsi < 30 ? '#27ae60' : data.technicals.rsi > 70 ? '#e74c3c' : '#f39c12'
-                            ]
-                        }]
-                    }
-                });
-            }
         }
 
         function updateSignals(signals) {
@@ -417,7 +368,23 @@
 
         function logout() {
             localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
             window.location.href = '/';
+        }
+
+        function generateMockPriceHistory() {
+            const history = [];
+            let price = 40000;
+
+            for (let i = 0; i < 24; i++) {
+                price += (Math.random() - 0.4) * 200;
+                history.push({
+                    timestamp: new Date(Date.now() - (24 - i) * 3600000).toISOString(),
+                    price: Math.round(price * 100) / 100
+                });
+            }
+
+            return history;
         }
 
         // Load data on page load
