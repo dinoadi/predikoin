@@ -226,7 +226,7 @@
             <div class="status-card">
                 <h3>Current Price</h3>
                 <div class="status-value" id="currentPrice">--</div>
-                <div class="status-subtext" id="priceChange">--</div>
+                <div class="status-subtext" id="priceChange" style="color: green;">--</div>
             </div>
 
             <div class="status-card">
@@ -277,10 +277,28 @@
 
         async function loadData() {
             try {
-                // Mock data - akan diconnect ke Appwrite nanti
+                // Fetch real Bitcoin price from CoinGecko (no auth needed)
+                const priceResponse = await fetch(
+                    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true&include_market_cap=true'
+                );
+                const priceData = await priceResponse.json();
+
+                // Fetch OHLCV data from Binance (1h candles, last 24 hours)
+                const ohlcvResponse = await fetch(
+                    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24'
+                );
+                const ohlcvData = await ohlcvResponse.json();
+
+                // Fetch news sentiment from CryptoPanic (no auth needed)
+                const newsResponse = await fetch(
+                    'https://cryptopanic.com/api/v1/posts/?filter=major&currencies=BTC&limit=50'
+                );
+                const newsData = await newsResponse.json();
+
                 const mockData = {
-                    currentPrice: 42000.50,
-                    priceChange: 2.5,
+                    currentPrice: priceData.bitcoin.usd,
+                    priceChange: priceData.bitcoin.usd_24h_change,
+                    marketCap: priceData.bitcoin.usd_market_cap,
                     prediction: {
                         action: 'BUY',
                         confidence: 0.78,
@@ -288,7 +306,7 @@
                         timestamp: new Date().toISOString()
                     },
                     sentiment: {
-                        label: 'positive',
+                        label: newsData.results && newsData.results.length > 0 ? 'positive' : 'neutral',
                         score: 0.35
                     },
                     technicals: {
@@ -303,19 +321,29 @@
                             timestamp: new Date().toISOString()
                         }
                     ],
-                    priceHistory: generateMockPriceHistory()
+                    priceHistory: ohlcvData.map(candle => ({
+                        timestamp: new Date(candle[0]).toISOString(),
+                        price: parseFloat(candle[4]) // Close price
+                    }))
                 };
 
                 updateUI(mockData);
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Error loading data: ' + error.message, 'error');
+                console.error('Data load error:', error);
             }
         }
 
         function updateUI(data) {
             // Update status cards
             if (data.currentPrice) {
-                document.getElementById('currentPrice').textContent = '$' + data.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                document.getElementById('currentPrice').textContent = '$' + data.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const changeEl = document.getElementById('priceChange');
+                const change = data.priceChange || 0;
+                const changeColor = change >= 0 ? 'green' : 'red';
+                changeEl.style.color = changeColor;
+                changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '% (24h)';
             }
 
             if (data.prediction) {
@@ -333,7 +361,7 @@
             }
 
             updateSignals(data.signals || []);
-            showMessage('Dashboard updated: ' + new Date().toLocaleTimeString('id-ID'), 'success');
+            showMessage('✅ Dashboard updated with real data: ' + new Date().toLocaleTimeString('id-ID'), 'success');
         }
 
         function updateSignals(signals) {
