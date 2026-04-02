@@ -94,7 +94,7 @@
 
         .charts {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -143,17 +143,17 @@
             font-size: 12px;
         }
 
-        .signal-action.buy {
+        .signal-action.buy, .signal-action.up {
             background: #d4edda;
             color: #155724;
         }
 
-        .signal-action.sell {
+        .signal-action.sell, .signal-action.down {
             background: #f8d7da;
             color: #721c24;
         }
 
-        .signal-action.hold {
+        .signal-action.hold, .signal-action.neutral {
             background: #fff3cd;
             color: #856404;
         }
@@ -199,6 +199,14 @@
             margin-bottom: 20px;
         }
 
+        .info {
+            background: #cce5ff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
         @media (max-width: 768px) {
             .charts {
                 grid-template-columns: 1fr;
@@ -214,6 +222,7 @@
     <div class="navbar">
         <h1>🤖 Bitcoin Predictor Dashboard</h1>
         <div class="navbar-right">
+            <span id="lastUpdate">--</span>
             <button class="refresh-btn" onclick="loadData()">🔄 Refresh</button>
             <button class="btn-logout" onclick="logout()">Logout</button>
         </div>
@@ -224,44 +233,44 @@
 
         <div class="status-bar">
             <div class="status-card">
-                <h3>Current Price</h3>
-                <div class="status-value" id="currentPrice">--</div>
-                <div class="status-subtext" id="priceChange" style="color: green;">--</div>
+                <h3>💰 Current Price</h3>
+                <div class="status-value" id="currentPrice">Loading...</div>
+                <div class="status-subtext" id="priceChange">--</div>
             </div>
 
             <div class="status-card">
-                <h3>Latest Prediction</h3>
+                <h3>🔮 AI Prediction</h3>
                 <div class="status-value" id="prediction">--</div>
                 <div class="status-subtext" id="predictionTime">--</div>
             </div>
 
             <div class="status-card">
-                <h3>Confidence</h3>
+                <h3>🎯 Confidence</h3>
                 <div class="status-value" id="confidence">--</div>
                 <div class="status-subtext" id="riskLevel">--</div>
             </div>
 
             <div class="status-card">
-                <h3>Sentiment</h3>
-                <div class="status-value" id="sentiment">--</div>
-                <div class="status-subtext" id="sentimentScore">--</div>
+                <h3>📊 RSI (14)</h3>
+                <div class="status-value" id="rsiValue">--</div>
+                <div class="status-subtext" id="rsiStatus">--</div>
             </div>
         </div>
 
         <div class="charts">
             <div class="chart-card">
-                <h3>Price Chart (24h)</h3>
+                <h3>📈 Price Chart (24h)</h3>
                 <canvas id="priceChart"></canvas>
             </div>
 
             <div class="chart-card">
-                <h3>RSI Indicator</h3>
+                <h3>📊 RSI Indicator (24h)</h3>
                 <canvas id="rsiChart"></canvas>
             </div>
         </div>
 
         <div class="signals">
-            <h3>Recent Signals</h3>
+            <h3>⚡ Trading Signals</h3>
             <div id="signalsList" class="loading">Loading signals...</div>
         </div>
     </div>
@@ -273,111 +282,293 @@
             window.location.href = '/';
         }
 
-        let priceChart, rsiChart;
+        let priceChart = null;
+        let rsiChart = null;
+
+        // Calculate RSI from price data
+        function calculateRSI(prices, period = 14) {
+            if (prices.length < period + 1) return [];
+
+            const rsiValues = [];
+            let gains = 0;
+            let losses = 0;
+
+            // First RSI calculation
+            for (let i = 1; i <= period; i++) {
+                const change = prices[i] - prices[i - 1];
+                if (change > 0) gains += change;
+                else losses -= change;
+            }
+
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+
+            for (let i = 0; i < period; i++) {
+                rsiValues.push(null); // No RSI for first 'period' values
+            }
+
+            // Calculate RSI for remaining prices
+            for (let i = period; i < prices.length; i++) {
+                if (i === period) {
+                    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                    rsiValues.push(100 - (100 / (1 + rs)));
+                } else {
+                    const change = prices[i] - prices[i - 1];
+                    const gain = change > 0 ? change : 0;
+                    const loss = change < 0 ? -change : 0;
+
+                    avgGain = (avgGain * (period - 1) + gain) / period;
+                    avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+                    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                    rsiValues.push(100 - (100 / (1 + rs)));
+                }
+            }
+
+            return rsiValues;
+        }
+
+        // Calculate Moving Average
+        function calculateMA(prices, period) {
+            const ma = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (i < period - 1) {
+                    ma.push(null);
+                } else {
+                    const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+                    ma.push(sum / period);
+                }
+            }
+            return ma;
+        }
+
+        // Generate prediction based on technical analysis
+        function generatePrediction(rsi, ma10, ma20, currentPrice) {
+            let score = 50; // Neutral starting point
+            let signals = [];
+
+            // RSI analysis (weight: 30%)
+            if (rsi < 30) {
+                score += 20;
+                signals.push({ type: 'RSI Oversold', direction: 'BUY', desc: `RSI ${rsi.toFixed(1)} < 30` });
+            } else if (rsi > 70) {
+                score -= 20;
+                signals.push({ type: 'RSI Overbought', direction: 'SELL', desc: `RSI ${rsi.toFixed(1)} > 70` });
+            } else {
+                signals.push({ type: 'RSI Neutral', direction: 'HOLD', desc: `RSI ${rsi.toFixed(1)}` });
+            }
+
+            // MA Cross analysis (weight: 30%)
+            if (ma10 > ma20) {
+                score += 15;
+                signals.push({ type: 'MA Bullish Cross', direction: 'BUY', desc: 'MA10 > MA20' });
+            } else {
+                score -= 15;
+                signals.push({ type: 'MA Bearish Cross', direction: 'SELL', desc: 'MA10 < MA20' });
+            }
+
+            // Price vs MA20 (weight: 20%)
+            if (currentPrice > ma20) {
+                score += 10;
+                signals.push({ type: 'Price Above MA20', direction: 'BUY', desc: 'Bullish trend' });
+            } else {
+                score -= 10;
+                signals.push({ type: 'Price Below MA20', direction: 'SELL', desc: 'Bearish trend' });
+            }
+
+            // Determine action
+            let action, riskLevel;
+            if (score >= 65) {
+                action = '🟢 BUY';
+                riskLevel = 'Low Risk';
+            } else if (score <= 35) {
+                action = '🔴 SELL';
+                riskLevel = 'High Risk';
+            } else {
+                action = '🟡 HOLD';
+                riskLevel = 'Medium Risk';
+            }
+
+            return {
+                action,
+                confidence: Math.min(Math.abs(score - 50) + 50, 95),
+                riskLevel,
+                signals,
+                score
+            };
+        }
 
         async function loadData() {
+            showMessage('⏳ Loading data...', 'info');
+
             try {
-                // Fetch real Bitcoin price from CoinGecko (no auth needed)
-                const priceResponse = await fetch(
-                    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true&include_market_cap=true'
+                // Fetch from Binance API (most reliable, no CORS issues)
+                const binanceResponse = await fetch(
+                    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=48'
                 );
-                const priceData = await priceResponse.json();
 
-                // Fetch OHLCV data from Binance (1h candles, last 24 hours)
-                const ohlcvResponse = await fetch(
-                    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24'
+                if (!binanceResponse.ok) {
+                    throw new Error('Binance API error: ' + binanceResponse.status);
+                }
+
+                const klines = await binanceResponse.json();
+
+                // Extract close prices
+                const closePrices = klines.map(k => parseFloat(k[4]));
+                const timestamps = klines.map(k => new Date(k[0]));
+                const volumes = klines.map(k => parseFloat(k[5]));
+
+                // Current price is last close
+                const currentPrice = closePrices[closePrices.length - 1];
+                const prevPrice = closePrices[closePrices.length - 25]; // 24h ago
+                const priceChange = ((currentPrice - prevPrice) / prevPrice) * 100;
+
+                // Calculate indicators
+                const rsiValues = calculateRSI(closePrices);
+                const currentRSI = rsiValues[rsiValues.length - 1] || 50;
+                const ma10 = calculateMA(closePrices, 10);
+                const ma20 = calculateMA(closePrices, 20);
+
+                // Generate prediction
+                const prediction = generatePrediction(
+                    currentRSI,
+                    ma10[ma10.length - 1],
+                    ma20[ma20.length - 1],
+                    currentPrice
                 );
-                const ohlcvData = await ohlcvResponse.json();
 
-                // Fetch news sentiment from CryptoPanic (no auth needed)
-                const newsResponse = await fetch(
-                    'https://cryptopanic.com/api/v1/posts/?filter=major&currencies=BTC&limit=50'
+                // Update UI
+                updatePriceDisplay(currentPrice, priceChange);
+                updateRSIDisplay(currentRSI);
+                updatePredictionDisplay(prediction);
+                updateSignals(prediction.signals);
+
+                // Update charts (last 24 data points)
+                updatePriceChart(
+                    timestamps.slice(-24),
+                    closePrices.slice(-24),
+                    ma10.slice(-24),
+                    ma20.slice(-24)
                 );
-                const newsData = await newsResponse.json();
+                updateRSIChart(timestamps.slice(-24), rsiValues.slice(-24));
 
-                const mockData = {
-                    currentPrice: priceData.bitcoin.usd,
-                    priceChange: priceData.bitcoin.usd_24h_change,
-                    marketCap: priceData.bitcoin.usd_market_cap,
-                    prediction: {
-                        action: 'BUY',
-                        confidence: 0.78,
-                        riskLevel: 'LOW',
-                        timestamp: new Date().toISOString()
-                    },
-                    sentiment: {
-                        label: newsData.results && newsData.results.length > 0 ? 'positive' : 'neutral',
-                        score: 0.35
-                    },
-                    technicals: {
-                        rsi: 28,
-                        ma10: 41800,
-                        ma30: 42000
-                    },
-                    signals: [
-                        {
-                            type: 'RSI_OVERSOLD',
-                            direction: 'UP',
-                            timestamp: new Date().toISOString()
-                        }
-                    ],
-                    priceHistory: ohlcvData.map(candle => ({
-                        timestamp: new Date(candle[0]).toISOString(),
-                        price: parseFloat(candle[4]) // Close price
-                    }))
-                };
+                // Update last refresh time
+                document.getElementById('lastUpdate').textContent =
+                    '🟢 ' + new Date().toLocaleTimeString('id-ID');
 
-                updateUI(mockData);
+                showMessage('✅ Data updated successfully!', 'success');
+
             } catch (error) {
-                showMessage('Error loading data: ' + error.message, 'error');
-                console.error('Data load error:', error);
+                console.error('Load error:', error);
+                showMessage('❌ Error: ' + error.message + '. Retrying with backup...', 'error');
+
+                // Try backup: CoinGecko
+                try {
+                    await loadFromCoinGecko();
+                } catch (backupError) {
+                    showMessage('❌ All APIs failed. Please check your connection.', 'error');
+                }
             }
         }
 
-        function updateUI(data) {
-            // Update status cards
-            if (data.currentPrice) {
-                document.getElementById('currentPrice').textContent = '$' + data.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        async function loadFromCoinGecko() {
+            const response = await fetch(
+                'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1'
+            );
 
-                const changeEl = document.getElementById('priceChange');
-                const change = data.priceChange || 0;
-                const changeColor = change >= 0 ? 'green' : 'red';
-                changeEl.style.color = changeColor;
-                changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '% (24h)';
+            if (!response.ok) throw new Error('CoinGecko failed');
+
+            const data = await response.json();
+            const prices = data.prices.map(p => p[1]);
+            const timestamps = data.prices.map(p => new Date(p[0]));
+
+            const currentPrice = prices[prices.length - 1];
+            const prevPrice = prices[0];
+            const priceChange = ((currentPrice - prevPrice) / prevPrice) * 100;
+
+            const rsiValues = calculateRSI(prices);
+            const currentRSI = rsiValues[rsiValues.length - 1] || 50;
+
+            updatePriceDisplay(currentPrice, priceChange);
+            updateRSIDisplay(currentRSI);
+
+            // Simple prediction for backup
+            let action = '🟡 HOLD';
+            if (currentRSI < 30) action = '🟢 BUY';
+            else if (currentRSI > 70) action = '🔴 SELL';
+
+            document.getElementById('prediction').textContent = action;
+            document.getElementById('confidence').textContent = '65%';
+            document.getElementById('riskLevel').textContent = 'Backup data';
+
+            // Sample charts with available data
+            const sampleSize = Math.min(24, prices.length);
+            updatePriceChart(
+                timestamps.slice(-sampleSize),
+                prices.slice(-sampleSize),
+                [], []
+            );
+            updateRSIChart(
+                timestamps.slice(-sampleSize),
+                rsiValues.slice(-sampleSize)
+            );
+
+            document.getElementById('lastUpdate').textContent =
+                '🟡 ' + new Date().toLocaleTimeString('id-ID') + ' (backup)';
+
+            showMessage('⚠️ Using backup data from CoinGecko', 'info');
+        }
+
+        function updatePriceDisplay(price, change) {
+            document.getElementById('currentPrice').textContent =
+                '$' + price.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+
+            const changeEl = document.getElementById('priceChange');
+            changeEl.style.color = change >= 0 ? '#155724' : '#721c24';
+            changeEl.textContent = (change >= 0 ? '📈 +' : '📉 ') + change.toFixed(2) + '% (24h)';
+        }
+
+        function updateRSIDisplay(rsi) {
+            document.getElementById('rsiValue').textContent = rsi.toFixed(1);
+
+            const statusEl = document.getElementById('rsiStatus');
+            if (rsi < 30) {
+                statusEl.textContent = '🟢 Oversold (Buy zone)';
+                statusEl.style.color = '#155724';
+            } else if (rsi > 70) {
+                statusEl.textContent = '🔴 Overbought (Sell zone)';
+                statusEl.style.color = '#721c24';
+            } else {
+                statusEl.textContent = '🟡 Neutral';
+                statusEl.style.color = '#856404';
             }
+        }
 
-            if (data.prediction) {
-                const pred = data.prediction;
-                document.getElementById('prediction').textContent = pred.action;
-                document.getElementById('predictionTime').textContent = new Date(pred.timestamp).toLocaleString('id-ID');
-                document.getElementById('confidence').textContent = (pred.confidence * 100).toFixed(1) + '%';
-                document.getElementById('riskLevel').textContent = pred.riskLevel;
-            }
-
-            if (data.sentiment) {
-                const emoji = data.sentiment.label === 'positive' ? '😊' : data.sentiment.label === 'negative' ? '😞' : '😐';
-                document.getElementById('sentiment').textContent = emoji;
-                document.getElementById('sentimentScore').textContent = data.sentiment.label + ' (' + (data.sentiment.score * 100).toFixed(1) + '%)';
-            }
-
-            updateSignals(data.signals || []);
-            showMessage('✅ Dashboard updated with real data: ' + new Date().toLocaleTimeString('id-ID'), 'success');
+        function updatePredictionDisplay(prediction) {
+            document.getElementById('prediction').textContent = prediction.action;
+            document.getElementById('predictionTime').textContent =
+                'Updated: ' + new Date().toLocaleString('id-ID');
+            document.getElementById('confidence').textContent =
+                prediction.confidence.toFixed(1) + '%';
+            document.getElementById('riskLevel').textContent = prediction.riskLevel;
         }
 
         function updateSignals(signals) {
             const list = document.getElementById('signalsList');
-            if (signals.length === 0) {
-                list.innerHTML = '<p style="text-align: center; color: #999;">No recent signals</p>';
+
+            if (!signals || signals.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">No signals available</p>';
                 return;
             }
 
-            list.innerHTML = signals.slice(0, 10).map(signal => `
+            list.innerHTML = signals.map(signal => `
                 <div class="signal-item">
                     <div>
                         <strong>${signal.type}</strong>
-                        <div class="signal-confidence">
-                            ${new Date(signal.timestamp).toLocaleString('id-ID')}
-                        </div>
+                        <div class="signal-confidence">${signal.desc}</div>
                     </div>
                     <span class="signal-action ${signal.direction.toLowerCase()}">
                         ${signal.direction}
@@ -386,12 +577,157 @@
             `).join('');
         }
 
+        function updatePriceChart(timestamps, prices, ma10, ma20) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            const labels = timestamps.map(t =>
+                t.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            );
+
+            const datasets = [
+                {
+                    label: 'BTC Price',
+                    data: prices,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2
+                }
+            ];
+
+            if (ma10.length > 0 && ma10.some(v => v !== null)) {
+                datasets.push({
+                    label: 'MA10',
+                    data: ma10,
+                    borderColor: '#28a745',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                });
+            }
+
+            if (ma20.length > 0 && ma20.some(v => v !== null)) {
+                datasets.push({
+                    label: 'MA20',
+                    data: ma20,
+                    borderColor: '#dc3545',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                });
+            }
+
+            if (priceChart) {
+                priceChart.destroy();
+            }
+
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: value => '$' + value.toLocaleString()
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        function updateRSIChart(timestamps, rsiValues) {
+            const ctx = document.getElementById('rsiChart').getContext('2d');
+
+            const labels = timestamps.map(t =>
+                t.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            );
+
+            if (rsiChart) {
+                rsiChart.destroy();
+            }
+
+            rsiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'RSI',
+                            data: rsiValues,
+                            borderColor: '#764ba2',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Overbought (70)',
+                            data: Array(labels.length).fill(70),
+                            borderColor: '#dc3545',
+                            borderWidth: 1,
+                            borderDash: [10, 5],
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Oversold (30)',
+                            data: Array(labels.length).fill(30),
+                            borderColor: '#28a745',
+                            borderWidth: 1,
+                            borderDash: [10, 5],
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                stepSize: 10
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
         function showMessage(msg, type) {
             const messageDiv = document.getElementById('message');
             messageDiv.innerHTML = `<div class="${type}">${msg}</div>`;
-            setTimeout(() => {
-                messageDiv.innerHTML = '';
-            }, 3000);
+
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    messageDiv.innerHTML = '';
+                }, 4000);
+            }
         }
 
         function logout() {
@@ -400,25 +736,10 @@
             window.location.href = '/';
         }
 
-        function generateMockPriceHistory() {
-            const history = [];
-            let price = 40000;
-
-            for (let i = 0; i < 24; i++) {
-                price += (Math.random() - 0.4) * 200;
-                history.push({
-                    timestamp: new Date(Date.now() - (24 - i) * 3600000).toISOString(),
-                    price: Math.round(price * 100) / 100
-                });
-            }
-
-            return history;
-        }
-
         // Load data on page load
         loadData();
 
-        // Refresh data every 60 seconds
+        // Auto refresh every 60 seconds
         setInterval(loadData, 60000);
     </script>
 </body>
