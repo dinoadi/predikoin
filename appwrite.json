@@ -6,7 +6,9 @@
             "$id": "fetch_price",
             "name": "fetch_price",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "fetch_price.js",
             "path": "functions/fetch_price",
             "schedule": "*/5 * * * *",
@@ -16,7 +18,9 @@
             "$id": "news_sentiment",
             "name": "news_sentiment",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "news_sentiment.js",
             "path": "functions/news_sentiment",
             "schedule": "*/15 * * * *",
@@ -26,7 +30,9 @@
             "$id": "predict_bitcoin",
             "name": "predict_bitcoin",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "predict_bitcoin.js",
             "path": "functions/predict_bitcoin",
             "schedule": "0 * * * *",
@@ -36,7 +42,9 @@
             "$id": "telegram_notif",
             "name": "telegram_notif",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "telegram_notif.js",
             "path": "functions/telegram_notif",
             "timeout": 30
@@ -45,7 +53,9 @@
             "$id": "data_cleanup",
             "name": "data_cleanup",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "data_cleanup.js",
             "path": "functions/data_cleanup",
             "schedule": "0 0 * * *",
@@ -55,7 +65,9 @@
             "$id": "telegram_bot_handler",
             "name": "telegram_bot_handler",
             "runtime": "node-18.0",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "entrypoint": "telegram_bot_handler.js",
             "path": "functions/telegram_bot_handler",
             "timeout": 30
