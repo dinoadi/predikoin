@@ -1,0 +1,9 @@
+{
+  "name": "telegram-bot-handler",
+  "version": "1.0.0",
+  "description": "Handles incoming Telegram messages",
+  "main": "telegram_bot_handler.js",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

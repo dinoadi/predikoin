@@ -4,7 +4,7 @@
  * Purpose: Send trading signals & alerts via Telegram
  */
 
-const TelegramClient = require('../utils/telegram-client');
+const TelegramClient = require('./telegram-client');
 
 module.exports = async function (req, res) {
   try {
